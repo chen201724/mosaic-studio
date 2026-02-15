@@ -1,42 +1,101 @@
+<div align="center">
+
 # 🎨 Mosaic Studio
 
-像素风格转换器 — 把图片和 GIF 转换为黑白灰像素艺术风格。
+**Pixel art converter — turn images and GIFs into grayscale pixel art**
 
-> 原始版本（2019）保留在 [legacy/](./legacy/) 目录
+[![Deploy](https://github.com/chen201724/mosaic-studio/actions/workflows/deploy.yml/badge.svg)](https://github.com/chen201724/mosaic-studio/actions/workflows/deploy.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 
-## ✨ 功能
+[Live Demo](https://chen201724.github.io/mosaic-studio/) · [Report Bug](https://github.com/chen201724/mosaic-studio/issues) · [Request Feature](https://github.com/chen201724/mosaic-studio/issues)
 
-- 📷 上传图片（JPG / PNG）→ 实时预览像素化效果 → 导出 PNG
-- 🎞️ 上传 GIF → 逐帧像素化处理 → 导出像素 GIF
-- 🎚️ 可调像素精度（2-50px）和灰度层级（2-8级）
-- 🖱️ 支持拖拽上传
-- 💻 纯前端实现，无需后端
+</div>
 
-## 🚀 在线体验
+---
 
-👉 [https://chen201724.github.io/mosaic/](https://chen201724.github.io/mosaic/)
+Mosaic Studio is a browser-based tool that converts images and GIFs into grayscale pixel art. Everything runs client-side — no uploads, no server, no tracking.
 
-## 开发
+## Features
+
+- **Image → Pixel Art** — Upload JPG/PNG, preview in real-time, export as PNG
+- **GIF → Pixel GIF** — Parse animated GIFs frame-by-frame, export as pixel-art GIF
+- **Adjustable Precision** — Pixel block size from 2px to 50px
+- **Grayscale Levels** — 2 (pure B&W) to 8 levels of gray
+- **Drag & Drop** — Drop files directly onto the page
+- **100% Client-Side** — All processing happens in your browser
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 19 |
+| Language | TypeScript 5.9 |
+| Build | Vite 7 |
+| Rendering | Canvas API |
+| GIF Decode | [omggif](https://github.com/deanm/omggif) |
+| GIF Encode | [modern-gif](https://github.com/nichenqin/modern-gif) |
+| Deploy | GitHub Pages |
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js >= 18
+
+### Development
 
 ```bash
+git clone https://github.com/chen201724/mosaic-studio.git
+cd mosaic-studio
 npm install
 npm run dev
 ```
 
-## 构建
+### Build
 
 ```bash
 npm run build
+npm run preview  # preview production build locally
 ```
 
-## 技术栈
+## How It Works
 
-- React + TypeScript
-- Vite
-- Canvas API
-- omggif（GIF 解析）
-- modern-gif（GIF 编码）
+1. **Image Upload** — File is read into an `HTMLCanvasElement` via `drawImage()`
+2. **Pixel Sampling** — For each pixel block, the center pixel's RGB is sampled
+3. **Grayscale Conversion** — RGB → luminance using `0.299R + 0.587G + 0.114B`
+4. **Quantization** — Continuous grayscale is mapped to N discrete levels
+5. **Block Fill** — Each block is filled with the quantized color
+6. **GIF Processing** — Each frame is decoded individually, processed, then re-encoded
+
+## Project Structure
+
+```
+src/
+├── main.tsx          # Entry point
+├── App.tsx           # Main application component
+├── index.css         # Styles
+└── utils/
+    ├── mosaic.ts     # Core pixel engine (applyMosaic, processFrame)
+    └── gif.ts        # GIF parse/encode utilities
+```
+
+## Roadmap
+
+- [ ] Video input (MP4/WebM → pixel GIF)
+- [ ] Color mode (preserve original colors)
+- [ ] Custom color palettes (Game Boy, NES, etc.)
+- [ ] Batch processing
+- [ ] PWA support
+
+## History
+
+This project started as a simple [pixel mosaic experiment](./legacy/) in vanilla JS back in 2019. It has since been rewritten as a full-featured React application.
+
+## Contributing
+
+Contributions are welcome! Please open an issue first to discuss what you'd like to change.
 
 ## License
 
-MIT
+[MIT](./LICENSE)
