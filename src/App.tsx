@@ -247,21 +247,21 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="header">
+      <header className="header" role="banner">
         <div className="header-left">
           <h1>🎨 Mosaic Studio</h1>
           <span className="header-badge">v2.0</span>
         </div>
         <div className="header-right">
           {fileType && (
-            <button className="btn btn-ghost" onClick={handleReset} style={{ width: 'auto', padding: '6px 16px' }}>
+            <button className="btn btn-ghost" onClick={handleReset} style={{ width: 'auto', padding: '6px 16px' }} aria-label="Re-upload file">
               重新上传
             </button>
           )}
         </div>
       </header>
 
-      <div className="main">
+      <div className="main" role="main">
         <div className="canvas-area">
           {!fileType ? (
             <div
@@ -269,11 +269,15 @@ export default function App() {
               onDragOver={e => { e.preventDefault(); setDragging(true) }}
               onDragLeave={() => setDragging(false)}
               onDrop={onDrop}
+              role="button"
+              tabIndex={0}
+              aria-label="Upload image or GIF file"
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); (e.currentTarget.querySelector('input') as HTMLInputElement)?.click() } }}
             >
-              <div className="upload-icon">↑</div>
+              <div className="upload-icon" aria-hidden="true">↑</div>
               <div className="upload-title">拖拽文件到这里，或点击上传</div>
               <div className="upload-hint">支持 JPG、PNG、GIF 格式</div>
-              <input type="file" accept="image/*" onChange={onFileChange} />
+              <input type="file" accept="image/*" onChange={onFileChange} aria-label="Choose file" tabIndex={-1} />
             </div>
           ) : (
             <div className="compare-wrapper">
@@ -285,6 +289,8 @@ export default function App() {
               <canvas
                 ref={compareCanvasRef}
                 className="compare-canvas"
+                role="img"
+                aria-label="Image comparison: drag to compare original and pixelated versions"
                 onMouseDown={(e) => {
                   isDraggingSlider.current = true
                   const rect = e.currentTarget.getBoundingClientRect()
@@ -312,7 +318,7 @@ export default function App() {
                 onTouchEnd={() => { isDraggingSlider.current = false }}
               />
 
-              <div className="compare-labels">
+              <div className="compare-labels" aria-hidden="true">
                 <span>原图</span>
                 <span>像素化</span>
               </div>
@@ -321,6 +327,7 @@ export default function App() {
                 <button
                   className="btn btn-ghost gif-play-btn"
                   onClick={gifPlaying ? stopGifPlayback : startGifPlayback}
+                  aria-label={gifPlaying ? 'Pause GIF animation' : 'Play GIF animation'}
                 >
                   {gifPlaying ? '⏸ 暂停' : '▶ 播放'}
                 </button>
@@ -329,7 +336,7 @@ export default function App() {
           )}
         </div>
 
-        <aside className="sidebar">
+        <aside className="sidebar" role="complementary" aria-label="Controls">
           <div className="sidebar-section">
             <h2>参数调节</h2>
 
@@ -339,7 +346,7 @@ export default function App() {
                 <span className="control-value">{pixelSize}px</span>
               </div>
               <input type="range" min={2} max={50} value={pixelSize}
-                onChange={e => setPixelSize(Number(e.target.value))} />
+                onChange={e => setPixelSize(Number(e.target.value))} aria-label={`Pixel size: ${pixelSize}px`} />
               <span className="control-desc">值越大像素块越大，细节越少，像素风格越强</span>
             </div>
 
@@ -348,15 +355,18 @@ export default function App() {
               <div className="control-header">
                 <span className="control-label">像素形状</span>
               </div>
-              <div className="shape-selector">
+              <div className="shape-selector" role="radiogroup" aria-label="Pixel shape">
                 {SHAPES.map(s => (
                   <button
                     key={s.id}
                     className={`shape-btn ${shape === s.id ? 'active' : ''}`}
                     onClick={() => setShape(s.id)}
                     title={s.name}
+                    role="radio"
+                    aria-checked={shape === s.id}
+                    aria-label={s.name}
                   >
-                    <span className="shape-icon">{s.icon}</span>
+                    <span className="shape-icon" aria-hidden="true">{s.icon}</span>
                     <span className="shape-name">{s.name}</span>
                   </button>
                 ))}
@@ -375,12 +385,14 @@ export default function App() {
               <div className="control-header">
                 <span className="control-label">色彩模式</span>
               </div>
-              <div className="mode-tabs">
+              <div className="mode-tabs" role="radiogroup" aria-label="Color mode">
                 {([['grayscale', '黑白灰'], ['color', '彩色'], ['palette', '调色板']] as const).map(([mode, label]) => (
                   <button
                     key={mode}
                     className={`mode-tab ${colorMode === mode ? 'active' : ''}`}
                     onClick={() => setColorMode(mode)}
+                    role="radio"
+                    aria-checked={colorMode === mode}
                   >
                     {label}
                   </button>
@@ -401,7 +413,7 @@ export default function App() {
                   <span className="control-value">{levels}</span>
                 </div>
                 <input type="range" min={2} max={8} value={levels}
-                  onChange={e => setLevels(Number(e.target.value))} />
+                  onChange={e => setLevels(Number(e.target.value))} aria-label={`Color levels: ${levels}`} />
                 <span className="control-desc">
                   {colorMode === 'grayscale'
                     ? '2 = 纯黑白，数值越大灰度过渡越细腻'
@@ -448,7 +460,7 @@ export default function App() {
           )}
 
           <div className="sidebar-section">
-            <button className="btn btn-primary" disabled={!fileType || processing} onClick={handleExport}>
+            <button className="btn btn-primary" disabled={!fileType || processing} onClick={handleExport} aria-label={processing ? 'Processing...' : 'Export image'}>
               {processing ? '处理中...' : fileType === 'gif' ? '导出像素 GIF' : '导出 PNG'}
             </button>
           </div>
@@ -460,7 +472,7 @@ export default function App() {
       </div>
 
       {/* Toast */}
-      <div className={`toast ${toast ? 'show' : ''}`}>
+      <div className={`toast ${toast ? 'show' : ''}`} role="status" aria-live="polite">
         <span>{toast}</span>
       </div>
     </div>
