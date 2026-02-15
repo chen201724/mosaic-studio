@@ -2,7 +2,9 @@
 
 # 🎨 Mosaic Studio
 
-**Pixel art converter — turn images and GIFs into grayscale pixel art**
+**Transform images into pixel art — in your browser.**
+
+*Every pixel tells a story.*
 
 [![Deploy](https://github.com/chen201724/mosaic-studio/actions/workflows/deploy.yml/badge.svg)](https://github.com/chen201724/mosaic-studio/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -14,16 +16,26 @@
 
 ---
 
-Mosaic Studio is a browser-based tool that converts images and GIFs into grayscale pixel art. Everything runs client-side — no uploads, no server, no tracking.
+Mosaic Studio is a browser-based pixel art converter with real-time preview, multiple pixel shapes, color palettes, and GIF animation support. Everything runs client-side — no uploads, no server, no tracking.
 
 ## Features
 
-- **Image → Pixel Art** — Upload JPG/PNG, preview in real-time, export as PNG
-- **GIF → Pixel GIF** — Parse animated GIFs frame-by-frame, export as pixel-art GIF
-- **Adjustable Precision** — Pixel block size from 2px to 50px
-- **Grayscale Levels** — 2 (pure B&W) to 8 levels of gray
-- **Drag & Drop** — Drop files directly onto the page
-- **100% Client-Side** — All processing happens in your browser
+### Core
+- **5 Pixel Shapes** — Square, Circle, Diamond, Cross-stitch, ASCII art
+- **3 Color Modes** — Grayscale, Color (quantized RGB), Palette
+- **4 Built-in Palettes** — Game Boy, NES, Cyberpunk, Retro Brown
+- **GIF Support** — Parse animated GIFs frame-by-frame, export as pixel-art GIF
+- **Comparison Slider** — Drag to compare original vs pixelated (Squoosh-style)
+- **Copy to Clipboard** — One-click copy for PNG images
+
+### Design & UX
+- **Design Token System** — 3-layer architecture (Global → Semantic → Component)
+- **Brand Color** — Cool gray palette with blue accent (#60A5FA)
+- **Professional Typography** — Inter + JetBrains Mono (numeric display)
+- **Micro-interactions** — Hover lift, pulse animations, toast feedback
+- **Accessibility** — ARIA roles/labels, keyboard navigation, `prefers-reduced-motion`
+- **Responsive** — Mobile-optimized with 44px touch targets
+- **100% Client-Side** — All processing in your browser, privacy guaranteed
 
 ## Tech Stack
 
@@ -32,9 +44,10 @@ Mosaic Studio is a browser-based tool that converts images and GIFs into graysca
 | Framework | React 19 |
 | Language | TypeScript 5.9 |
 | Build | Vite 7 |
-| Rendering | Canvas API |
+| Rendering | Canvas API + OffscreenCanvas |
 | GIF Decode | [omggif](https://github.com/deanm/omggif) |
 | GIF Encode | [modern-gif](https://github.com/nichenqin/modern-gif) |
+| Fonts | Inter, JetBrains Mono (Google Fonts) |
 | Deploy | GitHub Pages |
 
 ## Getting Started
@@ -63,10 +76,10 @@ npm run preview  # preview production build locally
 
 1. **Image Upload** — File is read into an `HTMLCanvasElement` via `drawImage()`
 2. **Pixel Sampling** — For each pixel block, the center pixel's RGB is sampled
-3. **Grayscale Conversion** — RGB → luminance using `0.299R + 0.587G + 0.114B`
-4. **Quantization** — Continuous grayscale is mapped to N discrete levels
-5. **Block Fill** — Each block is filled with the quantized color
-6. **GIF Processing** — Each frame is decoded individually, processed, then re-encoded
+3. **Color Processing** — Grayscale conversion, RGB quantization, or palette mapping
+4. **Shape Rendering** — Each block is rendered as the selected shape (square, circle, diamond, cross-stitch, or ASCII character)
+5. **Comparison** — Original and processed images are composited on a single canvas with a draggable divider
+6. **GIF Processing** — Each frame is decoded, processed via OffscreenCanvas, then re-encoded
 
 ## Project Structure
 
@@ -74,7 +87,7 @@ npm run preview  # preview production build locally
 src/
 ├── main.tsx          # Entry point
 ├── App.tsx           # Main application component
-├── index.css         # Styles
+├── index.css         # Design tokens + styles
 └── utils/
     ├── mosaic.ts     # Core pixel engine (applyMosaic, processFrame)
     └── gif.ts        # GIF parse/encode utilities
@@ -82,20 +95,26 @@ src/
 
 ## Roadmap
 
-- [x] Color modes (grayscale, color, palette)
-- [x] Built-in palettes (Game Boy, NES, Cyberpunk, Retro)
+- [x] 5 pixel shapes (square, circle, diamond, cross-stitch, ASCII)
+- [x] 3 color modes (grayscale, color, palette)
+- [x] 4 built-in palettes (Game Boy, NES, Cyberpunk, Retro)
 - [x] GIF animation preview with play/pause
-- [ ] Comparison slider (drag to compare original vs pixel)
-- [ ] Video input (MP4/WebM → pixel GIF)
-- [ ] AI video generation (pixel art → animated video via img2video models)
+- [x] Comparison slider (Squoosh-style)
+- [x] Copy to clipboard
+- [x] Design token system
+- [x] Micro-interactions & toast feedback
+- [x] Accessibility (ARIA, keyboard, reduced motion)
+- [x] Responsive mobile layout
+- [x] Open Graph & SEO meta tags
 - [ ] Custom color palette editor
 - [ ] Batch processing
 - [ ] PWA support
-- [ ] Share / copy to clipboard
+- [ ] Favicon & brand logo
+- [ ] OG preview image
 
 ## History
 
-This project started as a simple [pixel mosaic experiment](./legacy/) in vanilla JS back in 2019. It has since been rewritten as a full-featured React application.
+This project started as a simple [pixel mosaic experiment](./legacy/) in vanilla JS back in 2019. In 2025, it was rewritten from scratch as a full-featured React + TypeScript application with a professional design system.
 
 ## Contributing
 
@@ -104,3 +123,9 @@ Contributions are welcome! Please open an issue first to discuss what you'd like
 ## License
 
 [MIT](./LICENSE)
+
+---
+
+<div align="center">
+  <sub>Made by <a href="https://github.com/chen201724">chen201724</a></sub>
+</div>
