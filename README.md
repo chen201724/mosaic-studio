@@ -82,11 +82,16 @@ src/
 
 ## Roadmap
 
+- [x] Color modes (grayscale, color, palette)
+- [x] Built-in palettes (Game Boy, NES, Cyberpunk, Retro)
+- [x] GIF animation preview with play/pause
+- [ ] Comparison slider (drag to compare original vs pixel)
 - [ ] Video input (MP4/WebM → pixel GIF)
-- [ ] Color mode (preserve original colors)
-- [ ] Custom color palettes (Game Boy, NES, etc.)
+- [ ] AI video generation (pixel art → animated video via img2video models)
+- [ ] Custom color palette editor
 - [ ] Batch processing
 - [ ] PWA support
+- [ ] Share / copy to clipboard
 
 ## History
 
