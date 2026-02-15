@@ -28,6 +28,8 @@ export default function App() {
   const gifFrameIndexRef = useRef(0)
   const [sliderPos, setSliderPos] = useState(0.5) // 0-1, comparison divider
   const isDraggingSlider = useRef(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<number | null>(null)
 
   const getMosaicOpts = useCallback(() => ({
     pixelSize,
@@ -36,6 +38,12 @@ export default function App() {
     shape,
     palette: colorMode === 'palette' ? PALETTES[paletteIndex] : undefined,
   }), [pixelSize, colorMode, levels, paletteIndex, shape])
+
+  const showToast = useCallback((msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast(msg)
+    toastTimer.current = window.setTimeout(() => setToast(null), 2500)
+  }, [])
 
   const handleFile = useCallback(async (file: File) => {
     const type = file.type
@@ -193,7 +201,10 @@ export default function App() {
     const opts = getMosaicOpts()
     if (fileType === 'image') {
       resultCanvasRef.current!.toBlob((blob) => {
-        if (blob) downloadBlob(blob, `mosaic-${baseName}.png`)
+        if (blob) {
+          downloadBlob(blob, `mosaic-${baseName}.png`)
+          showToast('✅ PNG 导出成功')
+        }
       }, 'image/png')
     } else if (fileType === 'gif' && gifFrames.length > 0) {
       setProcessing(true)
@@ -205,11 +216,12 @@ export default function App() {
         }))
         const blob = await encodeGif(processed, width, height)
         downloadBlob(blob, `mosaic-${baseName}.gif`)
+        showToast('✅ GIF 导出成功')
       } finally {
         setProcessing(false)
       }
     }
-  }, [fileType, fileName, getMosaicOpts, gifFrames])
+  }, [fileType, fileName, getMosaicOpts, gifFrames, showToast])
 
   const handleReset = () => {
     stopGifPlayback()
@@ -445,6 +457,11 @@ export default function App() {
             🔒 所有处理均在浏览器本地完成，图片不会上传到任何服务器
           </div>
         </aside>
+      </div>
+
+      {/* Toast */}
+      <div className={`toast ${toast ? 'show' : ''}`}>
+        <span>{toast}</span>
       </div>
     </div>
   )
