@@ -223,6 +223,23 @@ export default function App() {
     }
   }, [fileType, fileName, getMosaicOpts, gifFrames, showToast])
 
+  const handleCopyToClipboard = useCallback(async () => {
+    if (!resultCanvasRef.current) return
+    try {
+      const blob = await new Promise<Blob | null>(resolve =>
+        resultCanvasRef.current!.toBlob(resolve, 'image/png')
+      )
+      if (blob) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ])
+        showToast('📋 已复制到剪贴板')
+      }
+    } catch {
+      showToast('❌ 复制失败，浏览器可能不支持')
+    }
+  }, [showToast])
+
   const handleReset = () => {
     stopGifPlayback()
     setFileType(null)
@@ -277,6 +294,13 @@ export default function App() {
               <div className="upload-icon" aria-hidden="true">↑</div>
               <div className="upload-title">拖拽文件到这里，或点击上传</div>
               <div className="upload-hint">支持 JPG、PNG、GIF 格式</div>
+              <div className="upload-examples" aria-hidden="true">
+                <span className="example-chip">🟦 方块</span>
+                <span className="example-chip">🔵 圆形</span>
+                <span className="example-chip">🔷 菱形</span>
+                <span className="example-chip">✖ 十字绣</span>
+                <span className="example-chip">A ASCII</span>
+              </div>
               <input type="file" accept="image/*" onChange={onFileChange} aria-label="Choose file" tabIndex={-1} />
             </div>
           ) : (
@@ -459,10 +483,15 @@ export default function App() {
             </div>
           )}
 
-          <div className="sidebar-section">
+          <div className="sidebar-section export-actions">
             <button className="btn btn-primary" disabled={!fileType || processing} onClick={handleExport} aria-label={processing ? 'Processing...' : 'Export image'}>
               {processing ? '处理中...' : fileType === 'gif' ? '导出像素 GIF' : '导出 PNG'}
             </button>
+            {fileType === 'image' && (
+              <button className="btn btn-ghost" disabled={!fileType} onClick={handleCopyToClipboard} aria-label="Copy to clipboard">
+                📋 复制到剪贴板
+              </button>
+            )}
           </div>
 
           <div className="privacy-hint">
