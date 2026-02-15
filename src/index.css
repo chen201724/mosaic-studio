@@ -258,6 +258,30 @@ body {
   color: var(--text-muted);
 }
 
+/* Upload examples — show available pixel shapes */
+.upload-examples {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--space-2);
+}
+
+.example-chip {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  background: var(--color-bg-surface);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-subtle);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.upload-zone:hover .example-chip {
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
 /* Comparison viewer */
 .compare-wrapper {
   width: 100%;
@@ -492,11 +516,20 @@ input[type="range"]:focus::-webkit-slider-thumb {
 
 /* File info */
 .file-info {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  padding: 8px 12px;
-  background: var(--bg);
-  border-radius: 8px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-input);
+  border-radius: var(--radius-md);
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.6;
+}
+
+/* Export actions */
+.export-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 /* Footer hint */
