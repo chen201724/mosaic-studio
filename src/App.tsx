@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { applyMosaic, processFrame } from './utils/mosaic'
+import { applyMosaic, processFrame, PALETTES, type ColorMode } from './utils/mosaic'
 import { parseGif, encodeGif, type GifFrame } from './utils/gif'
 import './index.css'
 
@@ -8,6 +8,8 @@ type FileType = 'image' | 'gif' | null
 export default function App() {
   const [pixelSize, setPixelSize] = useState(8)
   const [levels, setLevels] = useState(4)
+  const [colorMode, setColorMode] = useState<ColorMode>('grayscale')
+  const [paletteIndex, setPaletteIndex] = useState(0)
   const [fileType, setFileType] = useState<FileType>(null)
   const [fileName, setFileName] = useState('')
   const [fileSize, setFileSize] = useState('')
@@ -19,6 +21,13 @@ export default function App() {
   const [gifFrames, setGifFrames] = useState<GifFrame[]>([])
   const sourceCanvasRef = useRef<HTMLCanvasElement>(null)
   const resultCanvasRef = useRef<HTMLCanvasElement>(null)
+
+  const getMosaicOpts = useCallback(() => ({
+    pixelSize,
+    colorMode,
+    levels,
+    palette: colorMode === 'palette' ? PALETTES[paletteIndex] : undefined,
+  }), [pixelSize, colorMode, levels, paletteIndex])
 
   const handleFile = useCallback(async (file: File) => {
     const type = file.type
@@ -48,7 +57,7 @@ export default function App() {
         canvas.height = img.height
         canvas.getContext('2d')!.drawImage(img, 0, 0)
         setDimensions({ w: img.width, h: img.height })
-        setFileName(file.name) // trigger re-render
+        setFileName(file.name)
         URL.revokeObjectURL(img.src)
       }
       img.src = URL.createObjectURL(file)
@@ -59,24 +68,21 @@ export default function App() {
 
   // Re-apply mosaic
   useEffect(() => {
+    const opts = getMosaicOpts()
     if (fileType === 'image' && imageRef.current) {
-      applyMosaic(sourceCanvasRef.current!, resultCanvasRef.current!, {
-        pixelSize, grayscale: true, levels,
-      })
+      applyMosaic(sourceCanvasRef.current!, resultCanvasRef.current!, opts)
     } else if (fileType === 'gif' && gifFrames.length > 0) {
       const tgt = resultCanvasRef.current!
       const frame = gifFrames[0]
       tgt.width = frame.imageData.width
       tgt.height = frame.imageData.height
-      tgt.getContext('2d')!.putImageData(
-        processFrame(frame.imageData, { pixelSize, grayscale: true, levels }),
-        0, 0
-      )
+      tgt.getContext('2d')!.putImageData(processFrame(frame.imageData, opts), 0, 0)
     }
-  }, [fileType, pixelSize, levels, gifFrames])
+  }, [fileType, pixelSize, levels, colorMode, paletteIndex, gifFrames, getMosaicOpts])
 
   const handleExport = useCallback(async () => {
     const baseName = fileName.replace(/\.[^.]+$/, '')
+    const opts = getMosaicOpts()
     if (fileType === 'image') {
       resultCanvasRef.current!.toBlob((blob) => {
         if (blob) downloadBlob(blob, `mosaic-${baseName}.png`)
@@ -86,7 +92,7 @@ export default function App() {
       try {
         const { width, height } = gifFrames[0].imageData
         const processed = gifFrames.map(f => ({
-          imageData: processFrame(f.imageData, { pixelSize, grayscale: true, levels }),
+          imageData: processFrame(f.imageData, opts),
           delay: f.delay,
         }))
         const blob = await encodeGif(processed, width, height)
@@ -95,7 +101,7 @@ export default function App() {
         setProcessing(false)
       }
     }
-  }, [fileType, fileName, pixelSize, levels, gifFrames])
+  }, [fileType, fileName, getMosaicOpts, gifFrames])
 
   const handleReset = () => {
     setFileType(null)
@@ -120,7 +126,6 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Header */}
       <header className="header">
         <div className="header-left">
           <h1>🎨 Mosaic Studio</h1>
@@ -136,7 +141,6 @@ export default function App() {
       </header>
 
       <div className="main">
-        {/* Canvas area */}
         <div className="canvas-area">
           {!fileType ? (
             <div
@@ -165,34 +169,84 @@ export default function App() {
           )}
         </div>
 
-        {/* Sidebar */}
         <aside className="sidebar">
           <div className="sidebar-section">
             <h2>参数调节</h2>
 
             <div className="control-item">
               <div className="control-header">
-                <span className="control-label">像素块大小</span>
+                <span className="control-label">像素精度</span>
                 <span className="control-value">{pixelSize}px</span>
               </div>
               <input type="range" min={2} max={50} value={pixelSize}
                 onChange={e => setPixelSize(Number(e.target.value))} />
+              <span className="control-desc">值越大像素块越大，细节越少，像素风格越强</span>
+            </div>
+
+            {/* Color mode selector */}
+            <div className="control-item">
+              <div className="control-header">
+                <span className="control-label">色彩模式</span>
+              </div>
+              <div className="mode-tabs">
+                {([['grayscale', '黑白灰'], ['color', '彩色'], ['palette', '调色板']] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    className={`mode-tab ${colorMode === mode ? 'active' : ''}`}
+                    onClick={() => setColorMode(mode)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <span className="control-desc">
-                每个像素块的边长。数值越大，像素感越强，细节越少；数值越小，越接近原图。
+                {colorMode === 'grayscale' && '经典黑白灰像素风格'}
+                {colorMode === 'color' && '保留原始色彩，量化为像素色块'}
+                {colorMode === 'palette' && '映射到经典调色板配色'}
               </span>
             </div>
 
-            <div className="control-item">
-              <div className="control-header">
-                <span className="control-label">灰度层级</span>
-                <span className="control-value">{levels} 级</span>
+            {/* Levels slider — for grayscale and color */}
+            {colorMode !== 'palette' && (
+              <div className="control-item">
+                <div className="control-header">
+                  <span className="control-label">{colorMode === 'grayscale' ? '灰度层级' : '色彩层级'}</span>
+                  <span className="control-value">{levels}</span>
+                </div>
+                <input type="range" min={2} max={8} value={levels}
+                  onChange={e => setLevels(Number(e.target.value))} />
+                <span className="control-desc">
+                  {colorMode === 'grayscale'
+                    ? '2 = 纯黑白，数值越大灰度过渡越细腻'
+                    : '数值越小色彩越少越复古，越大越接近原色'}
+                </span>
               </div>
-              <input type="range" min={2} max={8} value={levels}
-                onChange={e => setLevels(Number(e.target.value))} />
-              <span className="control-desc">
-                灰度的阶梯数量。2 级 = 纯黑白，4 级 = 黑·深灰·浅灰·白，数值越大过渡越细腻。
-              </span>
-            </div>
+            )}
+
+            {/* Palette picker */}
+            {colorMode === 'palette' && (
+              <div className="control-item">
+                <div className="control-header">
+                  <span className="control-label">调色板</span>
+                </div>
+                <div className="palette-list">
+                  {PALETTES.map((p, i) => (
+                    <button
+                      key={p.name}
+                      className={`palette-option ${paletteIndex === i ? 'active' : ''}`}
+                      onClick={() => setPaletteIndex(i)}
+                    >
+                      <div className="palette-colors">
+                        {p.colors.slice(0, 6).map((c, j) => (
+                          <span key={j} className="palette-dot" style={{ background: `rgb(${c[0]},${c[1]},${c[2]})` }} />
+                        ))}
+                      </div>
+                      <span className="palette-name">{p.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {fileType && (

@@ -1,22 +1,63 @@
 /**
  * Core mosaic pixel engine
- * Converts image data to grayscale pixelated version
+ * Supports grayscale and color modes with optional palette mapping
  */
+
+export type ColorMode = 'grayscale' | 'color' | 'palette'
+
+export interface Palette {
+  name: string
+  colors: [number, number, number][]
+}
 
 export interface MosaicOptions {
   /** Pixel block size in px (2-50) */
   pixelSize: number
-  /** Convert to grayscale */
-  grayscale: boolean
-  /** Quantization levels: 2 = pure B&W, 3-8 = gray shades */
+  /** Color mode */
+  colorMode: ColorMode
+  /** Quantization levels for grayscale (2-8) */
   levels: number
+  /** Palette for palette mode */
+  palette?: Palette
 }
 
 const DEFAULT_OPTIONS: MosaicOptions = {
   pixelSize: 8,
-  grayscale: true,
+  colorMode: 'grayscale',
   levels: 4,
 }
+
+/** Built-in palettes */
+export const PALETTES: Palette[] = [
+  {
+    name: 'Game Boy',
+    colors: [[15, 56, 15], [48, 98, 48], [139, 172, 15], [155, 188, 15]],
+  },
+  {
+    name: 'NES',
+    colors: [
+      [0, 0, 0], [255, 255, 255], [124, 124, 124], [188, 188, 188],
+      [0, 0, 252], [0, 120, 248], [104, 136, 252], [152, 120, 248],
+      [216, 40, 0], [248, 56, 0], [248, 120, 88], [248, 184, 0],
+      [0, 168, 0], [0, 184, 0], [88, 216, 84], [0, 168, 68],
+    ],
+  },
+  {
+    name: '赛博朋克',
+    colors: [
+      [10, 10, 20], [20, 10, 40], [60, 0, 80], [120, 0, 120],
+      [200, 0, 200], [255, 0, 128], [0, 255, 255], [0, 200, 200],
+      [255, 255, 0], [255, 100, 0], [255, 255, 255],
+    ],
+  },
+  {
+    name: '复古棕',
+    colors: [
+      [30, 20, 15], [60, 40, 25], [100, 70, 40], [140, 100, 60],
+      [180, 140, 90], [210, 180, 130], [235, 215, 180], [250, 240, 220],
+    ],
+  },
+]
 
 /** RGB to grayscale using luminance formula */
 function toGray(r: number, g: number, b: number): number {
@@ -29,6 +70,34 @@ function quantize(value: number, levels: number): number {
   return Math.round(Math.round(value / step) * step)
 }
 
+/** Find closest color in palette using Euclidean distance */
+function closestPaletteColor(r: number, g: number, b: number, palette: [number, number, number][]): [number, number, number] {
+  let minDist = Infinity
+  let best = palette[0]
+  for (const c of palette) {
+    const dr = r - c[0], dg = g - c[1], db = b - c[2]
+    const dist = dr * dr + dg * dg + db * db
+    if (dist < minDist) {
+      minDist = dist
+      best = c
+    }
+  }
+  return best
+}
+
+/** Map pixel color based on mode */
+function mapColor(r: number, g: number, b: number, opts: MosaicOptions): [number, number, number] {
+  if (opts.colorMode === 'grayscale') {
+    const gray = quantize(toGray(r, g, b), opts.levels)
+    return [gray, gray, gray]
+  } else if (opts.colorMode === 'palette' && opts.palette) {
+    return closestPaletteColor(r, g, b, opts.palette.colors)
+  }
+  // color mode: quantize each channel
+  const q = opts.levels
+  return [quantize(r, q), quantize(g, q), quantize(b, q)]
+}
+
 /**
  * Apply mosaic effect: read from sourceCanvas, write to targetCanvas
  */
@@ -38,7 +107,7 @@ export function applyMosaic(
   options: Partial<MosaicOptions> = {}
 ): void {
   const opts = { ...DEFAULT_OPTIONS, ...options }
-  const { pixelSize, grayscale, levels } = opts
+  const { pixelSize } = opts
 
   const width = sourceCanvas.width
   const height = sourceCanvas.height
@@ -50,7 +119,7 @@ export function applyMosaic(
   const imageData = srcCtx.getImageData(0, 0, width, height)
   const pixels = imageData.data
 
-  tgtCtx.fillStyle = '#fff'
+  tgtCtx.fillStyle = '#000'
   tgtCtx.fillRect(0, 0, width, height)
 
   for (let x = 0; x < width; x += pixelSize) {
@@ -59,14 +128,7 @@ export function applyMosaic(
       const cy = Math.min(y + Math.floor(pixelSize / 2), height - 1)
       const pos = (cy * width + cx) * 4
 
-      let r = pixels[pos]
-      let g = pixels[pos + 1]
-      let b = pixels[pos + 2]
-
-      if (grayscale) {
-        const gray = quantize(toGray(r, g, b), levels)
-        r = g = b = gray
-      }
+      const [r, g, b] = mapColor(pixels[pos], pixels[pos + 1], pixels[pos + 2], opts)
 
       tgtCtx.fillStyle = `rgb(${r},${g},${b})`
       tgtCtx.fillRect(x, y, pixelSize, pixelSize)
@@ -82,15 +144,14 @@ export function processFrame(
   options: Partial<MosaicOptions> = {}
 ): ImageData {
   const opts = { ...DEFAULT_OPTIONS, ...options }
-  const { pixelSize, grayscale, levels } = opts
+  const { pixelSize } = opts
   const { width, height } = imageData
   const src = imageData.data
   const output = new ImageData(width, height)
   const dst = output.data
 
-  // Fill white
   for (let i = 0; i < dst.length; i += 4) {
-    dst[i] = dst[i + 1] = dst[i + 2] = 255
+    dst[i] = dst[i + 1] = dst[i + 2] = 0
     dst[i + 3] = 255
   }
 
@@ -100,14 +161,7 @@ export function processFrame(
       const cy = Math.min(by + Math.floor(pixelSize / 2), height - 1)
       const pos = (cy * width + cx) * 4
 
-      let r = src[pos]
-      let g = src[pos + 1]
-      let b = src[pos + 2]
-
-      if (grayscale) {
-        const gray = quantize(toGray(r, g, b), levels)
-        r = g = b = gray
-      }
+      const [r, g, b] = mapColor(src[pos], src[pos + 1], src[pos + 2], opts)
 
       const maxX = Math.min(bx + pixelSize, width)
       const maxY = Math.min(by + pixelSize, height)
