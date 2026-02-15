@@ -21,6 +21,9 @@ export default function App() {
   const [gifFrames, setGifFrames] = useState<GifFrame[]>([])
   const sourceCanvasRef = useRef<HTMLCanvasElement>(null)
   const resultCanvasRef = useRef<HTMLCanvasElement>(null)
+  const [gifPlaying, setGifPlaying] = useState(false)
+  const gifTimerRef = useRef<number | null>(null)
+  const gifFrameIndexRef = useRef(0)
 
   const getMosaicOpts = useCallback(() => ({
     pixelSize,
@@ -80,6 +83,59 @@ export default function App() {
     }
   }, [fileType, pixelSize, levels, colorMode, paletteIndex, gifFrames, getMosaicOpts])
 
+  // GIF animation playback
+  const stopGifPlayback = useCallback(() => {
+    if (gifTimerRef.current !== null) {
+      clearTimeout(gifTimerRef.current)
+      gifTimerRef.current = null
+    }
+    setGifPlaying(false)
+    gifFrameIndexRef.current = 0
+  }, [])
+
+  const startGifPlayback = useCallback(() => {
+    if (gifFrames.length < 2) return
+    setGifPlaying(true)
+    gifFrameIndexRef.current = 0
+
+    const playFrame = () => {
+      const idx = gifFrameIndexRef.current
+      const frame = gifFrames[idx]
+      if (!frame) return
+
+      const opts = getMosaicOpts()
+
+      // Draw original frame
+      const srcCanvas = sourceCanvasRef.current!
+      srcCanvas.getContext('2d')!.putImageData(frame.imageData, 0, 0)
+
+      // Draw processed frame
+      const tgtCanvas = resultCanvasRef.current!
+      tgtCanvas.getContext('2d')!.putImageData(processFrame(frame.imageData, opts), 0, 0)
+
+      // Schedule next frame
+      gifFrameIndexRef.current = (idx + 1) % gifFrames.length
+      gifTimerRef.current = window.setTimeout(playFrame, frame.delay || 100)
+    }
+
+    playFrame()
+  }, [gifFrames, getMosaicOpts])
+
+  // Stop playback on settings change or reset
+  useEffect(() => {
+    if (gifPlaying) {
+      stopGifPlayback()
+    }
+  }, [pixelSize, levels, colorMode, paletteIndex])
+
+  // Auto-start playback when GIF is loaded
+  useEffect(() => {
+    if (fileType === 'gif' && gifFrames.length > 1) {
+      startGifPlayback()
+    }
+    return () => stopGifPlayback()
+  }, [gifFrames, fileType])
+
   const handleExport = useCallback(async () => {
     const baseName = fileName.replace(/\.[^.]+$/, '')
     const opts = getMosaicOpts()
@@ -104,6 +160,7 @@ export default function App() {
   }, [fileType, fileName, getMosaicOpts, gifFrames])
 
   const handleReset = () => {
+    stopGifPlayback()
     setFileType(null)
     setFileName('')
     setFileSize('')
@@ -157,13 +214,22 @@ export default function App() {
           ) : (
             <div className="preview-container">
               <div className="preview-side">
-                <span className="preview-label">原图{fileType === 'gif' ? ' · 第1帧' : ''}</span>
+                <span className="preview-label">原图{fileType === 'gif' && gifPlaying ? ' · 播放中' : fileType === 'gif' ? ' · 第1帧' : ''}</span>
                 <canvas ref={sourceCanvasRef} />
               </div>
               <div className="preview-divider" />
               <div className="preview-side">
-                <span className="preview-label">像素化</span>
+                <span className="preview-label">像素化{fileType === 'gif' && gifPlaying ? ' · 播放中' : ''}</span>
                 <canvas ref={resultCanvasRef} />
+                {fileType === 'gif' && gifFrames.length > 1 && (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ width: 'auto', padding: '4px 16px', fontSize: '0.8rem', marginTop: 4 }}
+                    onClick={gifPlaying ? stopGifPlayback : startGifPlayback}
+                  >
+                    {gifPlaying ? '⏸ 暂停' : '▶ 播放'}
+                  </button>
+                )}
               </div>
             </div>
           )}
