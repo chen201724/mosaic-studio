@@ -500,6 +500,13 @@ export default function App() {
         </aside>
       </div>
 
+      <footer className="footer" role="contentinfo">
+        <span className="footer-tagline">Every pixel tells a story.</span>
+        <span className="footer-credit">
+          Made by <a href="https://github.com/chen201724" target="_blank" rel="noopener noreferrer">chen201724</a>
+        </span>
+      </footer>
+
       {/* Toast */}
       <div className={`toast ${toast ? 'show' : ''}`} role="status" aria-live="polite">
         <span>{toast}</span>
