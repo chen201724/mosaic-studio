@@ -21,9 +21,12 @@ export default function App() {
   const [gifFrames, setGifFrames] = useState<GifFrame[]>([])
   const sourceCanvasRef = useRef<HTMLCanvasElement>(null)
   const resultCanvasRef = useRef<HTMLCanvasElement>(null)
+  const compareCanvasRef = useRef<HTMLCanvasElement>(null)
   const [gifPlaying, setGifPlaying] = useState(false)
   const gifTimerRef = useRef<number | null>(null)
   const gifFrameIndexRef = useRef(0)
+  const [sliderPos, setSliderPos] = useState(0.5) // 0-1, comparison divider
+  const isDraggingSlider = useRef(false)
 
   const getMosaicOpts = useCallback(() => ({
     pixelSize,
@@ -83,6 +86,50 @@ export default function App() {
     }
   }, [fileType, pixelSize, levels, colorMode, paletteIndex, gifFrames, getMosaicOpts])
 
+  // Draw comparison canvas (left = original, right = pixel)
+  const drawComparison = useCallback(() => {
+    const src = sourceCanvasRef.current
+    const res = resultCanvasRef.current
+    const cmp = compareCanvasRef.current
+    if (!src || !res || !cmp || !fileType) return
+    if (src.width === 0 || src.height === 0) return
+
+    cmp.width = src.width
+    cmp.height = src.height
+    const ctx = cmp.getContext('2d')!
+    const splitX = Math.round(src.width * sliderPos)
+
+    // Left side: original
+    ctx.drawImage(src, 0, 0, splitX, src.height, 0, 0, splitX, src.height)
+    // Right side: mosaic
+    ctx.drawImage(res, splitX, 0, src.width - splitX, src.height, splitX, 0, src.width - splitX, src.height)
+
+    // Divider line
+    ctx.strokeStyle = '#fff'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(splitX, 0)
+    ctx.lineTo(splitX, src.height)
+    ctx.stroke()
+
+    // Handle circle
+    const cy = src.height / 2
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.arc(splitX, cy, 14, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#000'
+    ctx.font = '14px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('⇔', splitX, cy)
+  }, [sliderPos, fileType])
+
+  // Redraw comparison whenever source/result/slider changes
+  useEffect(() => {
+    drawComparison()
+  }, [drawComparison, pixelSize, levels, colorMode, paletteIndex, dimensions])
+
   // GIF animation playback
   const stopGifPlayback = useCallback(() => {
     if (gifTimerRef.current !== null) {
@@ -112,6 +159,9 @@ export default function App() {
       // Draw processed frame
       const tgtCanvas = resultCanvasRef.current!
       tgtCanvas.getContext('2d')!.putImageData(processFrame(frame.imageData, opts), 0, 0)
+
+      // Update comparison
+      drawComparison()
 
       // Schedule next frame
       gifFrameIndexRef.current = (idx + 1) % gifFrames.length
@@ -212,25 +262,55 @@ export default function App() {
               <input type="file" accept="image/*" onChange={onFileChange} />
             </div>
           ) : (
-            <div className="preview-container">
-              <div className="preview-side">
-                <span className="preview-label">原图{fileType === 'gif' && gifPlaying ? ' · 播放中' : fileType === 'gif' ? ' · 第1帧' : ''}</span>
-                <canvas ref={sourceCanvasRef} />
+            <div className="compare-wrapper">
+              {/* Hidden source canvases */}
+              <canvas ref={sourceCanvasRef} style={{ display: 'none' }} />
+              <canvas ref={resultCanvasRef} style={{ display: 'none' }} />
+
+              {/* Visible comparison canvas */}
+              <canvas
+                ref={compareCanvasRef}
+                className="compare-canvas"
+                onMouseDown={(e) => {
+                  isDraggingSlider.current = true
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setSliderPos(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)))
+                }}
+                onMouseMove={(e) => {
+                  if (!isDraggingSlider.current) return
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setSliderPos(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)))
+                }}
+                onMouseUp={() => { isDraggingSlider.current = false }}
+                onMouseLeave={() => { isDraggingSlider.current = false }}
+                onTouchStart={(e) => {
+                  isDraggingSlider.current = true
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const touch = e.touches[0]
+                  setSliderPos(Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width)))
+                }}
+                onTouchMove={(e) => {
+                  if (!isDraggingSlider.current) return
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const touch = e.touches[0]
+                  setSliderPos(Math.max(0, Math.min(1, (touch.clientX - rect.left) / rect.width)))
+                }}
+                onTouchEnd={() => { isDraggingSlider.current = false }}
+              />
+
+              <div className="compare-labels">
+                <span>原图</span>
+                <span>像素化</span>
               </div>
-              <div className="preview-divider" />
-              <div className="preview-side">
-                <span className="preview-label">像素化{fileType === 'gif' && gifPlaying ? ' · 播放中' : ''}</span>
-                <canvas ref={resultCanvasRef} />
-                {fileType === 'gif' && gifFrames.length > 1 && (
-                  <button
-                    className="btn btn-ghost"
-                    style={{ width: 'auto', padding: '4px 16px', fontSize: '0.8rem', marginTop: 4 }}
-                    onClick={gifPlaying ? stopGifPlayback : startGifPlayback}
-                  >
-                    {gifPlaying ? '⏸ 暂停' : '▶ 播放'}
-                  </button>
-                )}
-              </div>
+
+              {fileType === 'gif' && gifFrames.length > 1 && (
+                <button
+                  className="btn btn-ghost gif-play-btn"
+                  onClick={gifPlaying ? stopGifPlayback : startGifPlayback}
+                >
+                  {gifPlaying ? '⏸ 暂停' : '▶ 播放'}
+                </button>
+              )}
             </div>
           )}
         </div>
