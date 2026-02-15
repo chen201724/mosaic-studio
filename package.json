@@ -1,15 +1,16 @@
 {
-  "name": "mosaic-studio",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "mosaic",
+  "version": "2.0.0",
+  "description": "Pixel art converter — turn images and GIFs into grayscale pixel art",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "license": "MIT",
   "dependencies": {
     "modern-gif": "^2.0.4",
     "omggif": "^1.0.10",
