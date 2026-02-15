@@ -1,9 +1,10 @@
 /**
  * Core mosaic pixel engine
- * Supports grayscale and color modes with optional palette mapping
+ * Supports grayscale/color/palette modes and multiple pixel shapes
  */
 
 export type ColorMode = 'grayscale' | 'color' | 'palette'
+export type PixelShape = 'square' | 'circle' | 'diamond' | 'cross' | 'ascii'
 
 export interface Palette {
   name: string
@@ -11,23 +12,20 @@ export interface Palette {
 }
 
 export interface MosaicOptions {
-  /** Pixel block size in px (2-50) */
   pixelSize: number
-  /** Color mode */
   colorMode: ColorMode
-  /** Quantization levels for grayscale (2-8) */
   levels: number
-  /** Palette for palette mode */
   palette?: Palette
+  shape: PixelShape
 }
 
 const DEFAULT_OPTIONS: MosaicOptions = {
   pixelSize: 8,
   colorMode: 'grayscale',
   levels: 4,
+  shape: 'square',
 }
 
-/** Built-in palettes */
 export const PALETTES: Palette[] = [
   {
     name: 'Game Boy',
@@ -59,33 +57,37 @@ export const PALETTES: Palette[] = [
   },
 ]
 
-/** RGB to grayscale using luminance formula */
+export const SHAPES: { id: PixelShape; name: string; icon: string }[] = [
+  { id: 'square', name: '方块', icon: '■' },
+  { id: 'circle', name: '圆形', icon: '●' },
+  { id: 'diamond', name: '菱形', icon: '◆' },
+  { id: 'cross', name: '十字绣', icon: '✚' },
+  { id: 'ascii', name: '字符画', icon: 'A' },
+]
+
+// ASCII density ramp (dark → light)
+const ASCII_CHARS = '@%#*+=-:. '
+
 function toGray(r: number, g: number, b: number): number {
   return 0.299 * r + 0.587 * g + 0.114 * b
 }
 
-/** Quantize a 0-255 value to N discrete levels */
 function quantize(value: number, levels: number): number {
   const step = 255 / (levels - 1)
   return Math.round(Math.round(value / step) * step)
 }
 
-/** Find closest color in palette using Euclidean distance */
 function closestPaletteColor(r: number, g: number, b: number, palette: [number, number, number][]): [number, number, number] {
   let minDist = Infinity
   let best = palette[0]
   for (const c of palette) {
     const dr = r - c[0], dg = g - c[1], db = b - c[2]
     const dist = dr * dr + dg * dg + db * db
-    if (dist < minDist) {
-      minDist = dist
-      best = c
-    }
+    if (dist < minDist) { minDist = dist; best = c }
   }
   return best
 }
 
-/** Map pixel color based on mode */
 function mapColor(r: number, g: number, b: number, opts: MosaicOptions): [number, number, number] {
   if (opts.colorMode === 'grayscale') {
     const gray = quantize(toGray(r, g, b), opts.levels)
@@ -93,9 +95,68 @@ function mapColor(r: number, g: number, b: number, opts: MosaicOptions): [number
   } else if (opts.colorMode === 'palette' && opts.palette) {
     return closestPaletteColor(r, g, b, opts.palette.colors)
   }
-  // color mode: quantize each channel
   const q = opts.levels
   return [quantize(r, q), quantize(g, q), quantize(b, q)]
+}
+
+/** Draw a single pixel block with the given shape */
+function drawShape(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, size: number,
+  r: number, g: number, b: number,
+  brightness: number, // 0-1 for ASCII
+  shape: PixelShape
+) {
+  const half = size / 2
+  const cx = x + half
+  const cy = y + half
+  const color = `rgb(${r},${g},${b})`
+
+  switch (shape) {
+    case 'square':
+      ctx.fillStyle = color
+      ctx.fillRect(x, y, size, size)
+      break
+
+    case 'circle':
+      ctx.fillStyle = color
+      ctx.beginPath()
+      ctx.arc(cx, cy, half * 0.85, 0, Math.PI * 2)
+      ctx.fill()
+      break
+
+    case 'diamond':
+      ctx.fillStyle = color
+      ctx.beginPath()
+      ctx.moveTo(cx, y + 1)
+      ctx.lineTo(x + size - 1, cy)
+      ctx.lineTo(cx, y + size - 1)
+      ctx.lineTo(x + 1, cy)
+      ctx.closePath()
+      ctx.fill()
+      break
+
+    case 'cross': {
+      ctx.fillStyle = color
+      const arm = Math.max(1, Math.floor(size * 0.3))
+      // Horizontal bar
+      ctx.fillRect(x, y + half - arm / 2, size, arm)
+      // Vertical bar
+      ctx.fillRect(x + half - arm / 2, y, arm, size)
+      break
+    }
+
+    case 'ascii': {
+      const charIdx = Math.floor((1 - brightness) * (ASCII_CHARS.length - 1))
+      const ch = ASCII_CHARS[Math.max(0, Math.min(charIdx, ASCII_CHARS.length - 1))]
+      ctx.fillStyle = color
+      ctx.font = `${size}px monospace`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(ch, cx, cy)
+      break
+    }
+  }
 }
 
 /**
@@ -107,7 +168,7 @@ export function applyMosaic(
   options: Partial<MosaicOptions> = {}
 ): void {
   const opts = { ...DEFAULT_OPTIONS, ...options }
-  const { pixelSize } = opts
+  const { pixelSize, shape } = opts
 
   const width = sourceCanvas.width
   const height = sourceCanvas.height
@@ -119,7 +180,8 @@ export function applyMosaic(
   const imageData = srcCtx.getImageData(0, 0, width, height)
   const pixels = imageData.data
 
-  tgtCtx.fillStyle = '#000'
+  // Background: black for most shapes, dark for ASCII
+  tgtCtx.fillStyle = shape === 'ascii' ? '#111' : '#000'
   tgtCtx.fillRect(0, 0, width, height)
 
   for (let x = 0; x < width; x += pixelSize) {
@@ -128,54 +190,57 @@ export function applyMosaic(
       const cy = Math.min(y + Math.floor(pixelSize / 2), height - 1)
       const pos = (cy * width + cx) * 4
 
-      const [r, g, b] = mapColor(pixels[pos], pixels[pos + 1], pixels[pos + 2], opts)
+      const origR = pixels[pos], origG = pixels[pos + 1], origB = pixels[pos + 2]
+      const [r, g, b] = mapColor(origR, origG, origB, opts)
+      const brightness = toGray(origR, origG, origB) / 255
 
-      tgtCtx.fillStyle = `rgb(${r},${g},${b})`
-      tgtCtx.fillRect(x, y, pixelSize, pixelSize)
+      drawShape(tgtCtx, x, y, pixelSize, r, g, b, brightness, shape)
     }
   }
 }
 
 /**
- * Process a single frame's ImageData (for GIF/video frame processing)
+ * Process a single frame's ImageData (for GIF frame processing)
+ * Uses an offscreen canvas for shape rendering
  */
 export function processFrame(
   imageData: ImageData,
   options: Partial<MosaicOptions> = {}
 ): ImageData {
   const opts = { ...DEFAULT_OPTIONS, ...options }
-  const { pixelSize } = opts
   const { width, height } = imageData
-  const src = imageData.data
-  const output = new ImageData(width, height)
-  const dst = output.data
 
-  for (let i = 0; i < dst.length; i += 4) {
-    dst[i] = dst[i + 1] = dst[i + 2] = 0
-    dst[i + 3] = 255
-  }
+  // Use offscreen canvas for all shapes
+  const canvas = new OffscreenCanvas(width, height)
+  const ctx = canvas.getContext('2d')!
 
-  for (let bx = 0; bx < width; bx += pixelSize) {
-    for (let by = 0; by < height; by += pixelSize) {
-      const cx = Math.min(bx + Math.floor(pixelSize / 2), width - 1)
-      const cy = Math.min(by + Math.floor(pixelSize / 2), height - 1)
+  // Put source data
+  ctx.putImageData(imageData, 0, 0)
+
+  // Create source canvas to read from
+  const srcCanvas = new OffscreenCanvas(width, height)
+  srcCanvas.getContext('2d')!.putImageData(imageData, 0, 0)
+
+  // Clear and draw
+  const { pixelSize, shape } = opts
+  ctx.fillStyle = shape === 'ascii' ? '#111' : '#000'
+  ctx.fillRect(0, 0, width, height)
+
+  const srcData = imageData.data
+
+  for (let x = 0; x < width; x += pixelSize) {
+    for (let y = 0; y < height; y += pixelSize) {
+      const cx = Math.min(x + Math.floor(pixelSize / 2), width - 1)
+      const cy = Math.min(y + Math.floor(pixelSize / 2), height - 1)
       const pos = (cy * width + cx) * 4
 
-      const [r, g, b] = mapColor(src[pos], src[pos + 1], src[pos + 2], opts)
+      const origR = srcData[pos], origG = srcData[pos + 1], origB = srcData[pos + 2]
+      const [r, g, b] = mapColor(origR, origG, origB, opts)
+      const brightness = toGray(origR, origG, origB) / 255
 
-      const maxX = Math.min(bx + pixelSize, width)
-      const maxY = Math.min(by + pixelSize, height)
-      for (let px = bx; px < maxX; px++) {
-        for (let py = by; py < maxY; py++) {
-          const idx = (py * width + px) * 4
-          dst[idx] = r
-          dst[idx + 1] = g
-          dst[idx + 2] = b
-          dst[idx + 3] = 255
-        }
-      }
+      drawShape(ctx as unknown as CanvasRenderingContext2D, x, y, pixelSize, r, g, b, brightness, shape)
     }
   }
 
-  return output
+  return ctx.getImageData(0, 0, width, height)
 }
