@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { applyMosaic, processFrame, PALETTES, type ColorMode } from './utils/mosaic'
+import { applyMosaic, processFrame, PALETTES, SHAPES, type ColorMode, type PixelShape } from './utils/mosaic'
 import { parseGif, encodeGif, type GifFrame } from './utils/gif'
 import './index.css'
 
@@ -10,6 +10,7 @@ export default function App() {
   const [levels, setLevels] = useState(4)
   const [colorMode, setColorMode] = useState<ColorMode>('grayscale')
   const [paletteIndex, setPaletteIndex] = useState(0)
+  const [shape, setShape] = useState<PixelShape>('square')
   const [fileType, setFileType] = useState<FileType>(null)
   const [fileName, setFileName] = useState('')
   const [fileSize, setFileSize] = useState('')
@@ -32,8 +33,9 @@ export default function App() {
     pixelSize,
     colorMode,
     levels,
+    shape,
     palette: colorMode === 'palette' ? PALETTES[paletteIndex] : undefined,
-  }), [pixelSize, colorMode, levels, paletteIndex])
+  }), [pixelSize, colorMode, levels, paletteIndex, shape])
 
   const handleFile = useCallback(async (file: File) => {
     const type = file.type
@@ -84,7 +86,7 @@ export default function App() {
       tgt.height = frame.imageData.height
       tgt.getContext('2d')!.putImageData(processFrame(frame.imageData, opts), 0, 0)
     }
-  }, [fileType, pixelSize, levels, colorMode, paletteIndex, gifFrames, getMosaicOpts])
+  }, [fileType, pixelSize, levels, colorMode, paletteIndex, shape, gifFrames, getMosaicOpts])
 
   // Draw comparison canvas (left = original, right = pixel)
   const drawComparison = useCallback(() => {
@@ -128,7 +130,7 @@ export default function App() {
   // Redraw comparison whenever source/result/slider changes
   useEffect(() => {
     drawComparison()
-  }, [drawComparison, pixelSize, levels, colorMode, paletteIndex, dimensions])
+  }, [drawComparison, pixelSize, levels, colorMode, paletteIndex, shape, dimensions])
 
   // GIF animation playback
   const stopGifPlayback = useCallback(() => {
@@ -176,7 +178,7 @@ export default function App() {
     if (gifPlaying) {
       stopGifPlayback()
     }
-  }, [pixelSize, levels, colorMode, paletteIndex])
+  }, [pixelSize, levels, colorMode, paletteIndex, shape])
 
   // Auto-start playback when GIF is loaded
   useEffect(() => {
@@ -327,6 +329,33 @@ export default function App() {
               <input type="range" min={2} max={50} value={pixelSize}
                 onChange={e => setPixelSize(Number(e.target.value))} />
               <span className="control-desc">值越大像素块越大，细节越少，像素风格越强</span>
+            </div>
+
+            {/* Shape selector */}
+            <div className="control-item">
+              <div className="control-header">
+                <span className="control-label">像素形状</span>
+              </div>
+              <div className="shape-selector">
+                {SHAPES.map(s => (
+                  <button
+                    key={s.id}
+                    className={`shape-btn ${shape === s.id ? 'active' : ''}`}
+                    onClick={() => setShape(s.id)}
+                    title={s.name}
+                  >
+                    <span className="shape-icon">{s.icon}</span>
+                    <span className="shape-name">{s.name}</span>
+                  </button>
+                ))}
+              </div>
+              <span className="control-desc">
+                {shape === 'square' && '经典方块像素'}
+                {shape === 'circle' && '圆形像素点，更柔和的视觉效果'}
+                {shape === 'diamond' && '菱形排列，几何感更强'}
+                {shape === 'cross' && '十字绣风格，像手工刺绣'}
+                {shape === 'ascii' && '用字符密度表现明暗，复古终端风'}
+              </span>
             </div>
 
             {/* Color mode selector */}
